@@ -1,0 +1,32 @@
+name: Deploy to Google Cloud
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Authenticate Docker with Google Artifact Registry
+        run: |
+          gcloud auth configure-docker
+
+      - name: Deploy infrastructure with Terraform
+        run: |
+          cd terraform
+          terraform init
+          terraform apply -auto-approve
+
+      - name: Deploy application to Kubernetes
+        run: |
+          kubectl apply -f k8s
