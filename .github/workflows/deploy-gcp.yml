@@ -29,6 +29,18 @@ jobs:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           export_default_credentials: true
 
+      - name: Force ADC for Terraform
+        run: |
+          echo '${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}' > $HOME/gcp-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/gcp-key.json" >> $GITHUB_ENV
+          echo "GOOGLE_APPLICATION_CREDENTIALS set to $HOME/gcp-key.json" 
+
+      - name: Debug ADC
+        run: |
+          echo "ADC: $GOOGLE_APPLICATION_CREDENTIALS"
+          ls -l "$GOOGLE_APPLICATION_CREDENTIALS"
+          head -n 10 "$GOOGLE_APPLICATION_CREDENTIALS"
+
       # 3. Instalar kubectl corretamente
       - name: Install kubectl
         run: |
