@@ -10,8 +10,11 @@ module "gke" {
   region                     = var.region
   network                    = module.vpc.network_name
   subnetwork                 = module.vpc.subnets_names[0]
-  ip_range_pods              = "10.0.0.0/14"
-  ip_range_services          = "10.4.0.0/20"
+  
+  # CORREÇÃO: Referenciando os NOMES das faixas criadas no vpc.tf
+  ip_range_pods              = "pods-range"
+  ip_range_services          = "services-range"
+  
   enable_shielded_nodes      = true
   release_channel            = "STABLE"
 }
