@@ -1,6 +1,6 @@
 terraform {
   backend "gcs" {
-    bucket = "${var.project_id}-terraform-state"
+    bucket = "top-opus-479304-m3-terraform-state"
     prefix = "terraform/state"
   }
 }
