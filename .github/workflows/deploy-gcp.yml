@@ -13,7 +13,6 @@ jobs:
     env:
       TF_IN_AUTOMATION: true
       GOOGLE_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-      GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
       GOOGLE_REGION: ${{ secrets.GCP_REGION }}
       GOOGLE_ZONE: ${{ secrets.GCP_ZONE }}
 
@@ -22,7 +21,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Instalação e login no GCloud
+      # 2. Instala GCloud + Exporta credenciais ADC automaticamente
       - name: Set up Google Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
         with:
@@ -30,15 +29,16 @@ jobs:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           export_default_credentials: true
 
-      # 3. Instalar kubectl via gcloud
+      # 3. Instalar kubectl corretamente
       - name: Install kubectl
         run: |
-          gcloud components install kubectl --quiet
+          sudo apt-get update
+          sudo apt-get install -y kubectl
 
-      # 4. Autenticar Docker com Artifact Registry
+      # 4. Autenticar Docker no Artifact Registry
       - name: Authenticate Docker with Artifact Registry
         run: |
-          gcloud auth configure-docker ${GOOGLE_REGION}-docker.pkg.dev --quiet
+          gcloud auth configure-docker "${GOOGLE_REGION}-docker.pkg.dev" --quiet
 
       # 5. Instalar Terraform
       - name: Install Terraform
@@ -46,16 +46,15 @@ jobs:
         with:
           terraform_version: 1.5.7
 
-      # 6. Cache do Terraform
+      # 6. Cache Terraform
       - name: Setup Terraform cache
         uses: actions/cache@v4
         with:
           path: |
             ~/.terraform.d/plugin-cache
-            terraform/.terraform
           key: terraform-${{ hashFiles('terraform/**/*.tf') }}
 
-      # 7. Terraform Init & Plan
+      # 7. Terraform Init + Plan
       - name: Terraform Init & Plan
         working-directory: terraform
         run: |
@@ -74,10 +73,10 @@ jobs:
       - name: Configure kubectl (GKE)
         run: |
           gcloud container clusters get-credentials ${{ secrets.GCP_GKE_CLUSTER }} \
-            --region=${{ secrets.GCP_REGION }} \
-            --project=${{ secrets.GCP_PROJECT_ID }}
+            --region="${GOOGLE_REGION}" \
+            --project="${GOOGLE_PROJECT_ID}"
 
-      # 10. Apply dos manifests Kubernetes
+      # 10. Deploy Manifests Kubernetes
       - name: Deploy to Kubernetes
         run: |
           set -e
