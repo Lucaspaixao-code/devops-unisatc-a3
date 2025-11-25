@@ -15,50 +15,52 @@ jobs:
       GOOGLE_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       GOOGLE_REGION: ${{ secrets.GCP_REGION }}
       GOOGLE_ZONE: ${{ secrets.GCP_ZONE }}
+      TERRAFORM_BUCKET: top-opus-479304-m3-terraform-state
 
     steps:
       # 1. Checkout
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Instala GCloud + Exporta credenciais ADC automaticamente
-      - name: Set up Google Cloud SDK
+      # 2. Instalar GCloud + Exportar ADC
+      - name: Setup Google Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
         with:
           service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           export_default_credentials: true
 
+      # 3. Forçar ADC para Terraform
       - name: Force ADC for Terraform
         run: |
           echo '${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}' > $HOME/gcp-key.json
           echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/gcp-key.json" >> $GITHUB_ENV
-          echo "GOOGLE_APPLICATION_CREDENTIALS set to $HOME/gcp-key.json" 
 
+      # 4. DEBUG — Remover depois que estiver funcionando
       - name: Debug ADC
         run: |
           echo "ADC: $GOOGLE_APPLICATION_CREDENTIALS"
           ls -l "$GOOGLE_APPLICATION_CREDENTIALS"
           head -n 10 "$GOOGLE_APPLICATION_CREDENTIALS"
 
-      # 3. Instalar kubectl corretamente
+      # 5. Instalar kubectl
       - name: Install kubectl
         run: |
           sudo apt-get update
           sudo apt-get install -y kubectl
 
-      # 4. Autenticar Docker no Artifact Registry
+      # 6. Autenticação Artifact Registry
       - name: Authenticate Docker with Artifact Registry
         run: |
           gcloud auth configure-docker "${GOOGLE_REGION}-docker.pkg.dev" --quiet
 
-      # 5. Instalar Terraform
+      # 7. Instalar Terraform
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.5.7
 
-      # 6. Cache Terraform
+      # 8. Cache do Terraform
       - name: Setup Terraform cache
         uses: actions/cache@v4
         with:
@@ -66,40 +68,36 @@ jobs:
             ~/.terraform.d/plugin-cache
           key: terraform-${{ hashFiles('terraform/**/*.tf') }}
 
+      # 9. Criar bucket do backend, se não existir
       - name: Create Terraform backend bucket if not exists
         run: |
-          if gsutil ls -b gs://top-opus-479304-m3-terraform-state >/dev/null 2>&1; then
+          BUCKET="gs://${TERRAFORM_BUCKET}"
+          if gsutil ls -b "$BUCKET" >/dev/null 2>&1; then
             echo "Bucket already exists."
           else
-            echo "Creating bucket..."
-            gsutil mb -p $GCP_PROJECT_ID -l $GOOGLE_REGION gs://top-opus-479304-m3-terraform-state
+            echo "Creating bucket: $BUCKET"
+            gsutil mb -p "$GOOGLE_PROJECT_ID" -l "$GOOGLE_REGION" "$BUCKET"
           fi
 
-
-      # 7. Terraform Init + Plan
+      # 10. Terraform Init + Plan
       - name: Terraform Init & Plan
         working-directory: terraform
         run: |
-          set -e
           terraform init -input=false
           terraform plan -out=tfplan
 
-      # 8. Terraform Apply
+      # 11. Terraform Apply
       - name: Terraform Apply
         working-directory: terraform
-        run: |
-          set -e
-          terraform apply -auto-approve tfplan
+        run: terraform apply -auto-approve tfplan
 
-      # 9. Configurar kubectl para cluster GKE criado pelo Terraform
+      # 12. Configurar kubectl para cluster GKE
       - name: Configure kubectl (GKE)
         run: |
           gcloud container clusters get-credentials ${{ secrets.GCP_GKE_CLUSTER }} \
-            --region="${GOOGLE_REGION}" \
-            --project="${GOOGLE_PROJECT_ID}"
+            --region="$GOOGLE_REGION" \
+            --project="$GOOGLE_PROJECT_ID"
 
-      # 10. Deploy Manifests Kubernetes
+      # 13. Deploy Kubernetes
       - name: Deploy to Kubernetes
-        run: |
-          set -e
-          kubectl apply -f k8s/
+        run: kubectl apply -f k8s/
