@@ -21,6 +21,14 @@ jobs:
         run: |
           gcloud auth configure-docker
 
+      - name: Install Terraform
+        run: |
+          sudo apt-get update && sudo apt-get install -y wget unzip
+          wget https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip
+          unzip terraform_1.5.7_linux_amd64.zip
+          sudo mv terraform /usr/local/bin/
+          terraform --version
+
       - name: Deploy infrastructure with Terraform
         run: |
           cd terraform
