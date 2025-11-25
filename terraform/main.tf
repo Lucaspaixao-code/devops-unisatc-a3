@@ -1,3 +1,13 @@
+# Adicionamos este bloco para travar a versão do Provider e evitar conflitos
+terraform {
+  required_providers {
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 5.0"
+    }
+  }
+}
+
 provider "google" {
   project = var.project_id
   region  = var.region
@@ -5,6 +15,9 @@ provider "google" {
 
 module "gke" {
   source                     = "terraform-google-modules/kubernetes-engine/google"
+  # Fixamos a versão do módulo para garantir estabilidade
+  version                    = "31.1.0"
+  
   project_id                 = var.project_id
   name                       = var.cluster_name
   region                     = var.region
