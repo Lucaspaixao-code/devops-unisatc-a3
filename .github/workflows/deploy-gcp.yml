@@ -66,6 +66,16 @@ jobs:
             ~/.terraform.d/plugin-cache
           key: terraform-${{ hashFiles('terraform/**/*.tf') }}
 
+      - name: Create Terraform backend bucket if not exists
+        run: |
+          if gsutil ls -b gs://top-opus-479304-m3-terraform-state >/dev/null 2>&1; then
+            echo "Bucket already exists."
+          else
+            echo "Creating bucket..."
+            gsutil mb -p $GCP_PROJECT_ID -l $GOOGLE_REGION gs://top-opus-479304-m3-terraform-state
+          fi
+
+
       # 7. Terraform Init + Plan
       - name: Terraform Init & Plan
         working-directory: terraform
