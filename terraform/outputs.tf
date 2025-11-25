@@ -7,5 +7,6 @@ output "kubernetes_cluster_endpoint" {
 }
 
 output "kubernetes_cluster_ca_certificate" {
-  value = module.gke.ca_certificate
+  value     = module.gke.ca_certificate
+  sensitive = true
 }
