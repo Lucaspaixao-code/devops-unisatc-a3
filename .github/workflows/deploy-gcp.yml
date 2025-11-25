@@ -6,98 +6,77 @@ on:
     branches:
       - main
 
+env:
+  # Configurações centrais
+  TF_WORKING_DIR: 'terraform'
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: ${{ secrets.GCP_REGION }}
+  TF_STATE_BUCKET: 'top-opus-479304-m3-terraform-state'
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
-    env:
-      TF_IN_AUTOMATION: true
-      GOOGLE_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-      GOOGLE_REGION: ${{ secrets.GCP_REGION }}
-      GOOGLE_ZONE: ${{ secrets.GCP_ZONE }}
-      TERRAFORM_BUCKET: top-opus-479304-m3-terraform-state
+    permissions:
+      contents: 'read'
+      id-token: 'write'
 
     steps:
-      # 1. Checkout
-      - name: Checkout repository
+      # 1. Checkout do código
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # 2. Instalar GCloud + Exportar ADC
-      - name: Setup Google Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
+      # 2. Autenticação no Google Cloud (Moderna e Simples)
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
         with:
-          service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          export_default_credentials: true
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
 
-      # 3. Forçar ADC para Terraform
-      - name: Force ADC for Terraform
+      # 3. Configurar Google Cloud SDK
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # 4. Criar Bucket de Estado (se não existir)
+      - name: Ensure Terraform State Bucket exists
         run: |
-          echo '${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}' > $HOME/gcp-key.json
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/gcp-key.json" >> $GITHUB_ENV
+          if ! gcloud storage buckets describe gs://${{ env.TF_STATE_BUCKET }} > /dev/null 2>&1; then
+            echo "Criando bucket de estado..."
+            gcloud storage buckets create gs://${{ env.TF_STATE_BUCKET }} --project=${{ env.GCP_PROJECT_ID }} --location=${{ env.GCP_REGION }} --uniform-bucket-level-access
+          else
+            echo "Bucket já existe."
+          fi
 
-      # 4. DEBUG — Remover depois que estiver funcionando
-      - name: Debug ADC
-        run: |
-          echo "ADC: $GOOGLE_APPLICATION_CREDENTIALS"
-          ls -l "$GOOGLE_APPLICATION_CREDENTIALS"
-          head -n 10 "$GOOGLE_APPLICATION_CREDENTIALS"
-
-      # 5. Instalar kubectl
-      - name: Install kubectl
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y kubectl
-
-      # 6. Autenticação Artifact Registry
-      - name: Authenticate Docker with Artifact Registry
-        run: |
-          gcloud auth configure-docker "${GOOGLE_REGION}-docker.pkg.dev" --quiet
-
-      # 7. Instalar Terraform
-      - name: Install Terraform
+      # 5. Instalar Terraform
+      - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.5.7
 
-      # 8. Cache do Terraform
-      - name: Setup Terraform cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.terraform.d/plugin-cache
-          key: terraform-${{ hashFiles('terraform/**/*.tf') }}
-
-      # 9. Criar bucket do backend, se não existir
-      - name: Create Terraform backend bucket if not exists
-        run: |
-          BUCKET="gs://${TERRAFORM_BUCKET}"
-          if gsutil ls -b "$BUCKET" >/dev/null 2>&1; then
-            echo "Bucket already exists."
-          else
-            echo "Creating bucket: $BUCKET"
-            gsutil mb -p "$GOOGLE_PROJECT_ID" -l "$GOOGLE_REGION" "$BUCKET"
-          fi
-
-      # 10. Terraform Init + Plan
-      - name: Terraform Init & Plan
-        working-directory: terraform
-        run: |
-          terraform init -input=false
-          terraform plan -out=tfplan
-
-      # 11. Terraform Apply
+      # 6. Terraform Init e Apply (Cria Cluster e Rede)
       - name: Terraform Apply
-        working-directory: terraform
-        run: terraform apply -auto-approve tfplan
-
-      # 12. Configurar kubectl para cluster GKE
-      - name: Configure kubectl (GKE)
+        working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
-          gcloud container clusters get-credentials ${{ secrets.GCP_GKE_CLUSTER }} \
-            --region="$GOOGLE_REGION" \
-            --project="$GOOGLE_PROJECT_ID"
+          terraform init
+          terraform apply -auto-approve -input=false
 
-      # 13. Deploy Kubernetes
-      - name: Deploy to Kubernetes
-        run: kubectl apply -f k8s/
+      # 7. Obter nome do Cluster via Output do Terraform
+      - name: Get Cluster Name
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        id: tf-output
+        run: |
+          CLUSTER_NAME=$(terraform output -raw kubernetes_cluster_name)
+          echo "cluster_name=$CLUSTER_NAME" >> $GITHUB_OUTPUT
+
+      # 8. Conectar ao Cluster GKE
+      - name: Get GKE Credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ steps.tf-output.outputs.cluster_name }}
+          location: ${{ env.GCP_REGION }}
+
+      # 9. Deploy da Aplicação no Kubernetes
+      - name: Deploy to GKE
+        run: |
+          # Substitui a variável de imagem no YAML e aplica
+          # (Assume que você quer usar a imagem definida abaixo, ou pode pegar do secrets)
+          export DOCKER_IMAGE="lucaspaixao0/devops-strap/devops-unisatc-a3:latest"
+          envsubst < k8s/deployment.yaml | kubectl apply -f -
