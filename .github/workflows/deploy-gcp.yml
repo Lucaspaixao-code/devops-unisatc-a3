@@ -69,6 +69,7 @@ jobs:
           terraform apply -auto-approve -input=false
 
       # 8. Obter Detalhes do Cluster (Nome e Localização)
+      # ATENÇÃO: Isto requer que tenhas adicionado o output "kubernetes_cluster_location" no outputs.tf
       - name: Get Cluster Details
         working-directory: ${{ env.TF_WORKING_DIR }}
         id: tf-output
@@ -92,9 +93,30 @@ jobs:
           location: ${{ steps.tf-output.outputs.cluster_location }}
           project_id: ${{ env.GCP_PROJECT_ID }}
 
-      # 11. Deploy da Aplicação
+      # 11. Deploy da Aplicação (Deployment + Service)
       - name: Deploy to GKE
         run: |
           export DOCKER_IMAGE="${{ env.TF_VAR_docker_image }}"
-          # Substitui apenas a variável $DOCKER_IMAGE e aplica o YAML
+          
+          # 1. Aplica o Deployment (atualiza imagem do container)
+          # O comando envsubst substitui apenas a variável $DOCKER_IMAGE no yaml
           envsubst '$DOCKER_IMAGE' < k8s/deployment.yaml | kubectl apply -f -
+          
+          # 2. Aplica o Service (Cria o LoadBalancer / IP Público)
+          kubectl apply -f k8s/service.yaml
+
+      # 12. Obter URL da Aplicação
+      - name: Get Application URL
+        run: |
+          echo "A aguardar pelo IP Externo (isto pode demorar 1-2 minutos)..."
+          # Tenta obter o IP externo durante 5 minutos (30 x 10s)
+          for i in {1..30}; do
+            EXTERNAL_IP=$(kubectl get service app-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+            if [ -n "$EXTERNAL_IP" ]; then
+              echo "✅ Aplicação disponível em: http://$EXTERNAL_IP"
+              echo "URL=http://$EXTERNAL_IP" >> $GITHUB_ENV
+              break
+            fi
+            echo "A aguardar IP... (tentativa $i/30)"
+            sleep 10
+          done

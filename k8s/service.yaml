@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-service
+  namespace: default
+spec:
+  selector:
+    app: app
+  ports:
+    - protocol: TCP
+      port: 80         # Porta que abrimos para o mundo (http padrão)
+      targetPort: 1337 # Porta onde a tua aplicação roda no container
+  type: LoadBalancer   # Solicita um IP Externo ao Google Cloud
