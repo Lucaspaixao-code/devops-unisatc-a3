@@ -120,3 +120,18 @@ jobs:
             echo "A aguardar IP... (tentativa $i/30)"
             sleep 10
           done
+
+      # 13. [NOVO] Diagnóstico de Erros (Mostra Logs se algo falhar)
+      # Este passo corre sempre, mesmo que os anteriores tenham sucesso, para veres os logs
+      - name: Debug Application Logs
+        if: always()
+        run: |
+          echo "=== Estado dos Pods ==="
+          kubectl get pods -o wide
+          
+          echo "=== Descrição do Serviço ==="
+          kubectl describe service app-service
+          
+          echo "=== Logs da Aplicação (Últimas 50 linhas) ==="
+          # Tenta pegar logs de todos os pods com a label app=app
+          kubectl logs -l app=app --tail=50 --all-containers=true || echo "Não foi possível obter logs (os pods podem não estar a rodar)"
