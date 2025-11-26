@@ -15,7 +15,20 @@ spec:
     spec:
       containers:
       - name: app-container
-        # A variável $DOCKER_IMAGE será substituída pelo envsubst no workflow
         image: $DOCKER_IMAGE
+        imagePullPolicy: Always
+        
         ports:
         - containerPort: 1337
+        
+        envFrom:
+        - secretRef:
+            name: strapi-env-secret
+            
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
