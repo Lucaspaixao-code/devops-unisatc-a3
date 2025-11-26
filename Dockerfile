@@ -10,6 +10,8 @@ RUN npm install -g pnpm@latest && pnpm install --frozen-lockfile
 
 COPY . .
 
+RUN cp .env.example .env
+
 ENV NODE_ENV=production
 RUN pnpm build
 
