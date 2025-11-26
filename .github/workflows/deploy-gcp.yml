@@ -8,14 +8,14 @@ on:
 
 env:
   TF_WORKING_DIR: 'terraform'
+  # Segredos do GitHub
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   GCP_REGION: ${{ secrets.GCP_REGION }}
   TF_STATE_BUCKET: 'top-opus-479304-m3-terraform-state'
-  # CORREÇÃO: Força o Terraform a usar os valores dos Secrets,
-  # ignorando os valores "fake" do arquivo terraform.tfvars
+  
+  # Variáveis para o Terraform (Sobrescrevem o terraform.tfvars)
   TF_VAR_project_id: ${{ secrets.GCP_PROJECT_ID }}
   TF_VAR_region: ${{ secrets.GCP_REGION }}
-  # Define a imagem também via variável para consistência
   TF_VAR_docker_image: "lucaspaixao0/devops-strap/devops-unisatc-a3:latest"
 
 jobs:
@@ -40,10 +40,10 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      # 4. Ativar APIs Necessárias
+      # 4. Ativar APIs Necessárias (Compute, Container, Resource Manager)
       - name: Enable Google Cloud APIs
         run: |
-          gcloud services enable compute.googleapis.com container.googleapis.com --project=${{ env.GCP_PROJECT_ID }}
+          gcloud services enable compute.googleapis.com container.googleapis.com cloudresourcemanager.googleapis.com --project=${{ env.GCP_PROJECT_ID }}
 
       # 5. Criar Bucket de Estado (se não existir)
       - name: Ensure Terraform State Bucket exists
@@ -68,24 +68,33 @@ jobs:
           terraform init
           terraform apply -auto-approve -input=false
 
-      # 8. Obter nome do Cluster via Output do Terraform
-      - name: Get Cluster Name
+      # 8. Obter Detalhes do Cluster (Nome e Localização)
+      - name: Get Cluster Details
         working-directory: ${{ env.TF_WORKING_DIR }}
         id: tf-output
         run: |
           CLUSTER_NAME=$(terraform output -raw kubernetes_cluster_name)
+          CLUSTER_LOCATION=$(terraform output -raw kubernetes_cluster_location)
           echo "cluster_name=$CLUSTER_NAME" >> $GITHUB_OUTPUT
+          echo "cluster_location=$CLUSTER_LOCATION" >> $GITHUB_OUTPUT
 
-      # 9. Conectar ao Cluster GKE
+      # 9. Debug (Verificar se o cluster aparece na lista)
+      - name: Debug Cluster Info
+        run: |
+          echo "Procurando cluster: ${{ steps.tf-output.outputs.cluster_name }} em ${{ steps.tf-output.outputs.cluster_location }}"
+          gcloud container clusters list --project=${{ env.GCP_PROJECT_ID }}
+
+      # 10. Conectar ao Cluster GKE (Com localização exata)
       - name: Get GKE Credentials
         uses: google-github-actions/get-gke-credentials@v2
         with:
           cluster_name: ${{ steps.tf-output.outputs.cluster_name }}
-          location: ${{ env.GCP_REGION }}
+          location: ${{ steps.tf-output.outputs.cluster_location }}
+          project_id: ${{ env.GCP_PROJECT_ID }}
 
-      # 10. Deploy da Aplicação no Kubernetes
+      # 11. Deploy da Aplicação
       - name: Deploy to GKE
         run: |
-          # Usa a variável de ambiente definida no início do arquivo para o envsubst
           export DOCKER_IMAGE="${{ env.TF_VAR_docker_image }}"
-          envsubst < k8s/deployment.yaml | kubectl apply -f -
+          # Substitui apenas a variável $DOCKER_IMAGE e aplica o YAML
+          envsubst '$DOCKER_IMAGE' < k8s/deployment.yaml | kubectl apply -f -
