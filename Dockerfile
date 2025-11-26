@@ -1,13 +1,16 @@
-FROM node:18
+FROM node:18-alpine
+
+RUN apk update && apk add --no-cache build-base gcc autoconf automake zlib-dev libpng-dev nasm bash vips-dev python3 make g++
 
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml ./
 
-RUN npm install -g pnpm@latest && pnpm install
+RUN npm install -g pnpm@latest && pnpm install --frozen-lockfile
 
 COPY . .
 
+ENV NODE_ENV=production
 RUN pnpm build
 
 EXPOSE 1337
