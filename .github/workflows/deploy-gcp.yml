@@ -16,7 +16,7 @@ env:
   # Variáveis para o Terraform (Sobrescrevem o terraform.tfvars)
   TF_VAR_project_id: ${{ secrets.GCP_PROJECT_ID }}
   TF_VAR_region: ${{ secrets.GCP_REGION }}
-  TF_VAR_docker_image: "lucaspaixao0/devops-strap/devops-unisatc-a3:latest"
+  TF_VAR_docker_image: "lucaspaixao0/devops-unisatc-a3:latest"
 
 jobs:
   deploy:
