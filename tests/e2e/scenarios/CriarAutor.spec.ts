@@ -16,7 +16,7 @@ test.describe('Gestão de Autores', () => {
     autorPage = new AutorPage(page);
 
     await loginPage.acessarLogin(BASE_URL);
-    await loginPage.realizarLogin('admin@satc.edu.br', 'welcomeToStrapi123');
+    await loginPage.realizarLogin('admin@satc.edu.br', 'welcomeToStrapi1234');
   });
 
   test('Deve criar um novo autor com sucesso', async () => {
