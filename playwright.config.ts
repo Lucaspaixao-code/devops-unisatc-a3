@@ -13,8 +13,7 @@ const config: PlaywrightTestConfig = {
   use: {
     trace: 'on',
     locale: 'pt-BR',
-    headless: false,
-    viewport: { width: 1280, height: 720 },
+    headless: true, 
     ignoreHTTPSErrors: true,
     screenshot: 'on',
     video: 'off'
