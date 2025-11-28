@@ -29,24 +29,10 @@ jobs:
       run: pnpm install --no-frozen-lockfile
     
     - name: Install Playwright browsers
-      run: pnpm exec playwright install --with-deps
-
-    - name: Start Strapi Server in Background
-      run: pnpm start &
-      env:
-        APP_KEYS: ImJMpHjnCdJw4ii7jZzCXQ==,Jg239VoMach6Fh2LAH6ydA==,LAdmPTwE8oqyVjAV4pCkBQ==,f1gPGngKmE5xhyDktSpCVw==
-        NODE_ENV: production
-
-    - name: Wait for Strapi to be Ready (localhost:1337)
-      uses: nick-invision/retry@v2
-      with:
-        timeout_minutes: 5
-        max_attempts: 10
-        delay_seconds: 30
-        command: curl -sSf http://localhost:1337/admin
+      run: npx playwright install --with-deps
 
     - name: Run Playwright Tests
-      run: pnpm exec playwright test
+      run: npx playwright test
 
     - name: Upload Test Report (on failure)
       if: always()
