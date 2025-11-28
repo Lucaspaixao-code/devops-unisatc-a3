@@ -14,6 +14,7 @@ test.describe('Gestão de Categorias', () => {
   test.beforeEach(async ({ page }) => {
     loginPage = new LoginPage(page);
     categoriaPage = new CategoriaPage(page);
+    
 
     await loginPage.acessarLogin(BASE_URL);
     await loginPage.realizarLogin('admin@satc.edu.br', 'welcomeToStrapi123');
