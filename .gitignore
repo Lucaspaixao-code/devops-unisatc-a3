@@ -130,3 +130,15 @@ dist
 build
 .strapi-updater.json
 .strapi-cloud.json
+
+
+.strapi-cloud.json
+.strapi-cloud.json
+
+############################
+# Playwright/E2E
+############################
+
+artifacts/
+test-results/
+.playwright/

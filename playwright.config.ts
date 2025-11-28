@@ -1,16 +1,24 @@
-import { defineConfig } from '@playwright/test';
+import { PlaywrightTestConfig } from '@playwright/test';
 
-export default defineConfig({
-  testDir: './tests/e2e',
-  timeout: 30000,
-  expect: {
-    timeout: 5000,
+const config: PlaywrightTestConfig = {
+  testDir: 'tests/e2e/scenarios',
+  timeout: 50000,
+  retries: 0,
+  webServer: {
+    command: 'pnpm run develop',
+    url: 'http://localhost:1337',
+    timeout: 50000,
+    reuseExistingServer: !process.env.CI,
   },
   use: {
-    baseURL: 'http://localhost:1337',
-    headless: true,
+    trace: 'on',
+    locale: 'pt-BR',
+    headless: false,
     viewport: { width: 1280, height: 720 },
     ignoreHTTPSErrors: true,
-    video: 'retain-on-failure',
+    screenshot: 'on',
+    video: 'off'
   },
-});
+  reporter: [['html', { outputFolder: 'artifacts/report', open: 'never' }]]
+};
+export default config;
